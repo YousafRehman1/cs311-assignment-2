@@ -103,6 +103,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
+extern uint64 sys_interpose(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -130,8 +131,28 @@ static uint64 (*syscalls[])(void) = {
   [SYS_mkdir]   = sys_mkdir,
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
+  [SYS_interpose] = sys_interpose,
   // clang-format on
 };
+
+// Return 1 if p's sandbox allows system call num, 0 if it must be
+// rejected.  A call is rejected if its bit is set in p's mask, except
+// that a masked open or exec is allowed when its pathname argument
+// (argument 0 for both) is exactly the sandbox's allowed path.
+static int
+sandbox_allows(struct proc *p, int num)
+{
+  char path[MAXPATH];
+
+  if ((p->sbmask & (1U << num)) == 0)
+    return 1;
+
+  if ((num == SYS_open || num == SYS_exec) && p->sbpath[0] != 0) {
+    if (argstr(0, path, MAXPATH) >= 0 && strncmp(path, p->sbpath, MAXPATH) == 0)
+      return 1;
+  }
+  return 0;
+}
 
 void
 syscall(void)
@@ -141,6 +162,11 @@ syscall(void)
 
   num = p->trapframe->a7;
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    // A sandboxed call is not executed; it just returns -1.
+    if (!sandbox_allows(p, num)) {
+      p->trapframe->a0 = -1;
+      return;
+    }
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();

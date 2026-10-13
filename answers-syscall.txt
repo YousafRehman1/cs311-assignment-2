@@ -1,0 +1,50 @@
+Lab: system calls -- answers
+
+1. Looking at the backtrace output, which function called syscall?
+
+   usertrap() in kernel/trap.c (line 68).  When a user program executes
+   ecall, the trap goes through uservec in trampoline.S to usertrap(),
+   which sees r_scause() == 8 (environment call from U-mode), advances
+   epc past the ecall, and calls syscall().
+
+2. What is the value of p->trapframe->a7 and what does that value
+   represent?
+
+   a7 = 0xf (15).  a7 holds the system call number that the user-space
+   stub in usys.S loaded before executing ecall.  15 is SYS_open in
+   kernel/syscall.h: the first system call made by user space is the
+   open("console", O_RDWR) at the start of main() in user/init.c (the
+   kernel itself execs /init from forkret, so that is not a syscall).
+
+3. What was the previous mode that the CPU was in?
+
+   User mode.  The SPP bit (bit 8) of sstatus is 0, meaning the trap
+   came from user mode (SPP = 1 would mean supervisor mode).
+
+4. Write down the assembly instruction the kernel is panicking at.
+   Which register corresponds to the variable num?
+
+   The panic printed:
+       scause=0xd sepc=0x80001d7a stval=0x0
+       panic: kerneltrap
+   and kernel/kernel.asm shows at that address:
+       80001d7a:  00002683   lw  a3,0(zero)
+   The variable num is held in register a3.
+
+5. Why does the kernel crash?  Is address 0 mapped in the kernel address
+   space?  Is that confirmed by the value in scause above?
+
+   The instruction loads a word from virtual address 0, but address 0
+   is not mapped in the kernel's page table: the kernel address space
+   (Figure 3.3) starts mapping devices at 0x0C000000 (PLIC) / 0x10000000
+   (UART) and RAM at KERNBASE = 0x80000000.  The load therefore causes a
+   page fault.  This is confirmed by scause = 0xd = 13, which the RISC-V
+   privileged spec defines as "Load page fault", and stval = 0x0, the
+   faulting address.  A page fault in supervisor mode is not something
+   kerneltrap() can handle, so it panics.
+
+6. What is the name of the process that was running when the kernel
+   paniced?  What is its process id (pid)?
+
+   The process is "init" with pid 1.  It is the first user process, and
+   the panic happens on its very first system call (the open() above).

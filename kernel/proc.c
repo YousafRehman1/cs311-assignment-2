@@ -146,6 +146,11 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // A new process starts out unsandboxed.
+  p->sandboxed = 0;
+  p->sbmask = 0;
+  p->sbpath[0] = 0;
+
   return p;
 }
 
@@ -286,6 +291,11 @@ kfork(void)
     if (p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
+
+  // The child inherits the parent's sandbox.
+  np->sandboxed = p->sandboxed;
+  np->sbmask = p->sbmask;
+  safestrcpy(np->sbpath, p->sbpath, sizeof(np->sbpath));
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 

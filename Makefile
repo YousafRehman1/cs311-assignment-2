@@ -203,6 +203,12 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_sync\
+	$U/_sleep\
+	$U/_sixfive\
+	$U/_memdump\
+	$U/_find\
+	$U/_sandbox\
+	$U/_sbtest\
 
 
 
@@ -283,6 +289,8 @@ ifeq ($(LAB),util)
 endif
 ifeq ($(LAB),syscall)
 	UEXTRA += user/exec.sh
+	UEXTRA += user/findtest.sh
+	UEXTRA += user/sixfive.txt
 endif
 
 fs.img: mkfs/mkfs README $(UEXTRA) $(UPROGS)

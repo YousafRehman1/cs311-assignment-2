@@ -101,4 +101,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // Sandbox state set by interpose(); inherited across fork.
+  int sandboxed;               // Has interpose() been called?
+  uint sbmask;                 // Bit (1 << SYS_x) set => reject syscall x
+  char sbpath[MAXPATH];        // open/exec of this path still allowed ("" = none)
 };
